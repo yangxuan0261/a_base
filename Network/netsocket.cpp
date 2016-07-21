@@ -6,6 +6,8 @@ netsocket.cpp: implementation of the CNetSocket class.
 
 #include <stdio.h>
 
+#define CACHE_SIZE 0x1000
+
 #ifdef WIN32
 #pragma comment(lib, "Ws2_32.lib")
 #endif
@@ -21,34 +23,17 @@ CNetSocket::~CNetSocket()
 
 bool CNetSocket::Initialize()
 {
-
+	WSADATA wsaData;
+	int nRet;
+	if ((nRet = WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0){
+		printf("--- WSAStartup failed\n");
+		return false;
+	}
 	m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (m_socket == SOCKET_ERROR)
 	{
 		int error = GETERROR;
 		printf("--- init socket failed,for:%d ", error);
-		return false;
-	}
-	return true;
-}
-
-bool CNetSocket::BindAddr(char *ip, int port)
-{
-	SOCKADDR_IN addrLocal;
-	addrLocal.sin_family = AF_INET;
-	addrLocal.sin_port = htons(port);
-	if (ip)
-	{
-		addrLocal.sin_addr.s_addr = inet_addr(ip);
-	}
-	else
-	{
-		addrLocal.sin_addr.s_addr = htonl(INADDR_ANY);
-	}
-	if (bind(m_socket, (SOCKADDR *)&addrLocal, sizeof(addrLocal)) == SOCKET_ERROR)
-	{
-		int error = GETERROR;
-		printf("socket bind:%s:%d failed,for:%d", ip, port, error);
 		return false;
 	}
 	return true;
@@ -107,79 +92,29 @@ bool CNetSocket::Connect(const char *szAddr, int port, int& errorCode, unsigned 
 * >  0	bytes recv
 * = -1 net dead
 */
-int CNetSocket::_Recv(char *buf, int len)
+int CNetSocket::_Recv(char* _buff, int* _len)
 {
-	if (len < 0 || buf == NULL)
-		return -1;
-
-	int ret, err;
-	/* in linux be careful of SIGPIPE */
-	do {
-		ret = recv(m_socket, buf, len, 0);
-		if (ret == SOCKET_ERROR) {
-			err = GETERROR;
-		}
-	} while (ret == SOCKET_ERROR && err == WSAEINTR);
-
-	if (ret == 0)
-	{
-		/* remote closed */
+	char buffer[CACHE_SIZE];
+	int ret = recv(m_socket, buffer, CACHE_SIZE, 0);
+	if (ret == 0) {
+		// close
 		printf("recv remote close\r\n");
-		return -1;
-	}
-
-	if (ret == SOCKET_ERROR)
-	{
-		int err = GETERROR;
-		if (err != WSAEWOULDBLOCK)
-		{
-			printf("recv local close\r\n");
-			return -1;
-		}
-	}
-	return ret;
-}
-
-bool CNetSocket::Recv(std::string& buf,int len)
-{
-	/*
-	int pos = 0;
-	int remain = len;
-	int ret;
-
-	while (remain > 0)
-	{
-		if (pos >= len)
-			return false;
-
-		ret = _Recv(buf + pos, remain);
-
-		if (ret < 0)
-			return false;
-
-		remain -= ret;
-		if (remain < 0)
-			return false;
-
-		pos += ret;
-	}
-	*/
-	char tmpBuf[65533];
-	int ret = recv(m_socket, tmpBuf, len, 0);
-	if (ret == 0)
-	{
-		return false;
+		return ret;
 	}
 	else if (ret < 0)
 	{
-		return false;
+		if (errno == EAGAIN || errno == EINTR) {
+			return 0;
+		}
+		printf("socket error");
 	}
 	else
 	{
-		buf = std::string(tmpBuf);
-		return true;
+		memcpy(_buff, buffer, ret);
+		*_len = ret;
 	}
 
+	return ret;
 }
 
 /*
@@ -190,54 +125,18 @@ bool CNetSocket::Recv(std::string& buf,int len)
 */
 int CNetSocket::_Send(const char *buf, int len)
 {
-	if (len < 0 || buf == NULL)
-		return -1;
-
-	int ret, err;
-	do {
-		ret = send(m_socket, buf, len, 0);
-		if (ret == SOCKET_ERROR) {
-			err = GETERROR;
+	while (len > 0) {
+		int r = send(m_socket, buf, len, 0);
+		if (r < 0) {
+			if (errno == EAGAIN || errno == EINTR)
+				continue;
+			printf("--- socket send error");
 		}
-	} while (ret == SOCKET_ERROR && err == WSAEINTR);
-
-	if (ret == SOCKET_ERROR)
-	{
-		int err = GETERROR;
-		if (err == WSAEWOULDBLOCK) return 0;
-		//if (err==WSAECONNABORTED)
-		//	CCLOG("send local close\r\n");
-		//else
-		//	CCLOG("send remote close\r\n");
-		return -1;
-	}
-	return ret;
-}
-
-bool CNetSocket::Send(const char *buf, int len)
-{
-	int pos = 0;
-	int remain = len;
-	int ret;
-
-	while (remain > 0)
-	{
-		if (pos >= len)
-			return false;
-
-		ret = _Send(buf + pos, remain);
-
-		if (ret < 0)
-			return false;
-
-		remain -= ret;
-		if (remain < 0)
-			return false;
-
-		pos += ret;
+		buf += r;
+		len -= r;
 	}
 
-	return true;
+	return 1;
 }
 
 bool CNetSocket::Close()
@@ -249,4 +148,66 @@ bool CNetSocket::Close()
 	m_socket = INVALID_SOCKET;
 	printf("--- socket close completed!\r\n");
 	return true;
+}
+
+void SBuff::Recv(const char* _src, int _len)
+{
+	if (_len <= 0)
+		return;
+
+	uint32 rpos = mCurrPos + _len;
+	if (rpos <= mLen)
+	{
+		memcpy(mBuff + mCurrPos, _src, _len);
+
+		if (rpos == mLen)
+			mCurrPos = 0;
+		else
+			mCurrPos += _len;
+	}
+	else //rest not enough, from head
+	{
+		uint32 num = mLen - mCurrPos;
+		rpos = _len - num;
+
+		memcpy(mBuff + mCurrPos, _src, num);
+		mCurrPos = 0;
+		memcpy(mBuff + mCurrPos, _src + num, rpos);
+		mCurrPos += rpos;
+	}
+
+	mOpLen += _len;
+}
+
+void SBuff::Read(char* _dst, uint32* _len)
+{
+	if (mOpLen <= 0)
+		return;
+
+	uint32 rpos = mOpPos + mOpLen;
+	if (rpos <= mLen)
+	{
+		memcpy(_dst, mBuff + mOpPos, mOpLen);
+		memset(mBuff + mOpPos, 0x0, mOpLen);
+
+		if (rpos == mLen)
+			mOpPos = 0;
+		else
+			mOpPos += mOpLen;
+	}
+	else
+	{
+		uint32 num = mLen - mOpPos;
+		rpos = mOpLen - num;
+
+		memcpy(_dst, mBuff + mOpPos, num);
+		memset(mBuff + mOpPos, 0x0, num);
+		mOpPos = 0;
+		memcpy(_dst + num, mBuff + mOpPos, rpos);
+		memset(mBuff + mOpPos, 0x0, rpos);
+		mOpPos += rpos;
+	}
+
+	*_len = mOpLen;
+	mOpLen = 0;
 }

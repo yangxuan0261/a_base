@@ -1,11 +1,12 @@
 #include <lua.h>
 #include <lauxlib.h>
+#include <stdbool.h>
 
 #define LUA_API_EXPORT __declspec(dllexport) 
 
-extern void Connect(const char* _ip, int _port);
-extern void Send(const char* _msg);
-//extern void Recv(const char* _recv);
+extern bool Connect(const char* _ip, int _port);
+extern void Send(const char* _msg, int _len);
+extern void Recv(char* _msg, unsigned int* _len);
 extern void Close();
 
 static int
@@ -13,7 +14,8 @@ lconnect(lua_State *L) {
 	size_t sz = 0;
 	const char* ip = luaL_checklstring(L, 1, &sz);
 	int port = luaL_checkinteger(L, 2);
-	Connect(ip, port);
+	bool ret = Connect(ip, port);
+	lua_pushboolean(L, ret);
 	return 1;
 }
 
@@ -21,18 +23,27 @@ static int
 lsend(lua_State *L) {
 	size_t sz = 0;
 	const char* msg = luaL_checklstring(L, 1, &sz);
-	Send(msg);
+	Send(msg, sz);
 	return 1;
 }
 
-//static int
-//lrecv(lua_State *L) {
-//	std::string content = Recv();
-//	if (content.length() > 0) {
-//		lua_pushlstring(L, content.c_str(), content.length());
-//	}
-//	return 1;
-//}
+static int
+lrecv(lua_State *L) {
+	unsigned int len = 0;
+	char buffer[65535];
+	Recv(buffer, &len);
+	if (len > 0)
+	{
+		lua_pushlstring(L, buffer, len);
+		return 1;
+	}
+	else
+	{
+		lua_pushnil(L);
+		lua_pushinteger(L, 1); //lua中根据第二个来判断是否返回
+		return 2;
+	}
+}
 
 static int
 lclose(lua_State *L) {
@@ -46,7 +57,7 @@ luaopen_network(lua_State *L) {
 	luaL_Reg l[] = {
 		{ "connect", lconnect },
 		{ "send", lsend },
-		//{ "recv", lrecv },
+		{ "recv", lrecv },
 		{ "close", lclose },
 		{ NULL, NULL },
 	};

@@ -11,12 +11,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{6F4DAC98-D714-4BD2-9047-2FBC953E9ECA}</ProjectGuid>
-    <RootNamespace>sproto</RootNamespace>
+    <ProjectGuid>{E2AB1C33-AACE-466F-89BA-902FD576B72C}</ProjectGuid>
+    <RootNamespace>luacjson</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
@@ -39,21 +39,20 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <TargetExt>.dll</TargetExt>
-    <TargetName>sproto_core</TargetName>
+    <TargetExt>.lib</TargetExt>
     <OutDir>$(SolutionDir)$(Configuration).win32\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>F:\lua-5.3.0\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>F:\lua-5.3.0\src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>G:\workplace_cocos\TestSky\frameworks\runtime-src\proj.win32\Debug.win32</AdditionalLibraryDirectories>
-      <AdditionalDependencies>lua53.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -71,12 +70,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="lsproto.c" />
-    <ClCompile Include="sproto.c" />
+    <ClCompile Include="dtoa.c" />
+    <ClCompile Include="fpconv.c" />
+    <ClCompile Include="g_fmt.c" />
+    <ClCompile Include="lua_cjson.c" />
+    <ClCompile Include="strbuf.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="msvcint.h" />
-    <ClInclude Include="sproto.h" />
+    <ClInclude Include="dtoa_config.h" />
+    <ClInclude Include="fpconv.h" />
+    <ClInclude Include="strbuf.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

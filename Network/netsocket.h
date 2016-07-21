@@ -52,14 +52,36 @@ typedef sockaddr			SOCKADDR;
 #define CONN_INPRROGRESS	EINPROGRESS
 #endif
 
+#define BUFF_SIZE	1 << 20  // 1024*1024 = 1M
+typedef unsigned int uint32;
+
+struct SBuff
+{
+	SBuff() {
+		//mBuff = new char[BUFF_SIZE] {0};
+		mLen = BUFF_SIZE;
+		mCurrPos = 0;
+		mOpPos = 0;
+		mOpLen = 0;
+	}
+	char mBuff[BUFF_SIZE];
+	uint32 mLen;
+	uint32 mCurrPos;
+	uint32 mOpPos;
+	uint32 mOpLen;
+
+	void Recv(const char* _src, int _len);
+	void Read(char* _dst, uint32* _len);
+	bool HasOpData() { return mOpLen > 0; }
+};
 
 class CNetSocket
 {
-private:
+public:
 	SOCKET	m_socket;		//平台相关的套接字
 
 	//收数据
-	int _Recv(char *buf,int len);
+	int _Recv(char* _buff, int* _len);
 	//发数据
 	int _Send(const char *buf,int len);
 public:
@@ -69,16 +91,8 @@ public:
 	//初始化
 	bool Initialize();
 
-	// 绑定ip地址和端口
-	bool BindAddr(char *ip,int port);
-
 	//连接服务器
 	bool Connect(const char *szAddr,int port,int& errorCode,unsigned long ip = 0);
-
-	//收数据
-	bool Recv(std::string& buf,int len);
-	//发数据
-	bool Send(const char *buf,int len);
 
 	//bool GetLocalAddr (char *addr, short *port,unsigned long *ip = NULL);
 	//bool GetRemoteAddr(char *addr,short *port,unsigned long *ip = NULL);

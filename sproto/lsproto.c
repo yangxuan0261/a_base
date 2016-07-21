@@ -681,11 +681,11 @@ luaopen_sproto_core(lua_State *L) {
 		{ "default", ldefault },
 		{ NULL, NULL },
 	};
-	//luaL_newlib(L,l);
+	luaL_newlib(L,l);
 	pushfunction_withbuffer(L, "encode", lencode);
 	pushfunction_withbuffer(L, "pack", lpack);
 	pushfunction_withbuffer(L, "unpack", lunpack);
-	lua_newtable(L);
-	luaL_openlib(L, "sproto_core", l, 0);
+	//lua_newtable(L);
+	//luaL_openlib(L, "sproto_core", l, 0);
 	return 1;
 }
