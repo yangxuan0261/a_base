@@ -1005,9 +1005,9 @@ static int json_is_invalid_number(json_parse_t *json)
     }
 
     /* Reject inf/nan */
-	if (!stricmp(p, "inf", 3))
+	if (!strnicmp(p, "inf", 3))
         return 1;
-    if (!stricmp(p, "nan", 3))
+	if (!strnicmp(p, "nan", 3))
         return 1;
 
     /* Pass all other numbers which may still be invalid, but
@@ -1409,9 +1409,7 @@ static int lua_cjson_new(lua_State *l)
 	lua_pushliteral(l, CJSON_VERSION);
 	lua_setfield(l, -2, "_VERSION");
 
-
-	luaL_openlib(l, CJSON_MODNAME, reg, 0);
-
+	//luaL_openlib(l, CJSON_MODNAME, reg, 0);
     return 1;
 }
 
