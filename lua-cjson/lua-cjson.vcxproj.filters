@@ -18,9 +18,6 @@
     <ClCompile Include="dtoa.c">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="fpconv.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="g_fmt.c">
       <Filter>源文件</Filter>
     </ClCompile>
