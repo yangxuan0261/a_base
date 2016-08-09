@@ -4,10 +4,16 @@
 
 #define LUA_API_EXPORT __declspec(dllexport) 
 
+typedef void(*Callback)(int);
+
 extern bool Connect(const char* _ip, int _port);
 extern void Send(const char* _msg, int _len);
 extern void Recv(char* _msg, unsigned int* _len);
 extern void Close();
+extern void RegCallback(Callback _cb);
+
+static char lcbFunc[32] = {0};
+static lua_State* selfls = NULL;
 
 static int
 lconnect(lua_State *L) {
@@ -16,6 +22,42 @@ lconnect(lua_State *L) {
 	int port = luaL_checkinteger(L, 2);
 	bool ret = Connect(ip, port);
 	lua_pushboolean(L, ret);
+	return 1;
+}
+
+static void lcallBack(int _flag) {
+	if (lcbFunc == NULL || selfls == NULL)
+		return;
+
+	int oldTop = lua_gettop(selfls);
+	lua_getglobal(selfls, lcbFunc);
+
+	if (!lua_isfunction(selfls, -1))
+	{
+		printf("--- error: lua_isfunction false");
+		lua_settop(selfls, oldTop);
+		return;
+	}
+
+	lua_pushinteger(selfls, _flag);
+	int iRet = lua_pcall(selfls, 1, 0, 0);
+	if (iRet)                       
+	{
+		printf("--- error: lcallBack, flag:%d", _flag);
+		lua_settop(selfls, oldTop);
+		return;
+	}
+	lua_settop(selfls, oldTop);
+}
+
+static int
+lregCallback(lua_State *L) {
+	selfls = L;
+	size_t sz = 0;
+	const char* cbFunc = luaL_checklstring(L, 1, &sz);
+	memcpy(lcbFunc, cbFunc, sz);
+	printf("--- reg callback func:%s\n", lcbFunc);
+	RegCallback(lcallBack);
 	return 1;
 }
 
@@ -59,6 +101,7 @@ luaopen_network(lua_State *L) {
 		{ "send", lsend },
 		{ "recv", lrecv },
 		{ "close", lclose },
+		{ "regCallback", lregCallback },
 		{ NULL, NULL },
 	};
 	//luaL_newlib(L, l);

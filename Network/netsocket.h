@@ -73,6 +73,12 @@ struct SBuff
 	void Recv(const char* _src, int _len);
 	void Read(char* _dst, uint32* _len);
 	bool HasOpData() { return mOpLen > 0; }
+	void Clear() { 
+		mCurrPos = 0;
+		mOpPos = 0;
+		mOpLen = 0;
+		memset(mBuff, 0, BUFF_SIZE); 
+	}
 };
 
 class CNetSocket

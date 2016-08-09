@@ -7,15 +7,16 @@
 #include "netsocket.h"
 #include <functional>
 
-typedef std::function<void(bool)> Callback;
-
+//typedef std::function<void(int)> Callback;
+typedef void(*Callback)(int);
 class CGameNet;
 
 enum class ENetState : int
 {
 	None = 0,
 	StartConnect,
-	Connected,
+	ConnectSucc,
+	ConnectFail,
 	Networking,
 	Disconnected,
 	Reconnect,
@@ -49,8 +50,7 @@ public:
 	virtual bool _connect(std::string _ip, int _port);
 	virtual void NotifyDisconnected();
 
-	void SetConnectDlg(Callback _cb) { mOnConnectDlg = _cb; }
-	void SetDisconnectDlg(Callback _cb) { mOnDisconnectDlg = _cb; }
+	void SetCallback(Callback _cb) { mNetCallback = _cb; }
 
 private:
 	std::mutex	mSendMtx;
@@ -59,12 +59,13 @@ private:
 	SBuff*		mRecvBuff;
 	bool		mSendThRunnable;
 	bool		mRecvThRunnable;
-	Callback	mOnDisconnectDlg;
-	Callback	mOnConnectDlg;
+	Callback	mNetCallback;
 	ENetState	mNetState;
 
 	std::string mIp;
 	int			mPort;
+	std::string mConnectCb;
+	std::string mDisconnectCb;
 
 	CNetSocket* mNetSocket;
 public:
