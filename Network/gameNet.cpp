@@ -47,14 +47,6 @@ void CGameNet::_start()
 	thRecv.detach();
 }
 
-void CGameNet::_reconnect()
-{
-	if (mIp.length() > 0 && mPort > 0)
-	{
-
-	}
-}
-
 void CGameNet::Update(float _dt)
 {
 	if (mNetState == ENetState::None)
@@ -62,10 +54,6 @@ void CGameNet::Update(float _dt)
 	}
 	else if (mNetState == ENetState::ConnectSucc)
 	{
-		mSendThRunnable = true;
-		mRecvThRunnable = true;
-		_start(); //链接成功开始工作线程
-
 		if (mNetCallback)
 			mNetCallback((int)ENetState::ConnectSucc);
 
@@ -103,6 +91,24 @@ void CGameNet::Update(float _dt)
 	}
 }
 
+void CGameNet::StartSRThread()
+{
+	mSendThRunnable = true;
+	mRecvThRunnable = true;
+	_start(); //链接成功开始工作线程
+}
+
+void CGameNet::Clear()
+{
+	mSendMtx.lock();
+	mSendBuff->Clear(); // clear buff
+	mSendMtx.unlock();
+
+	mRecvMtx.lock();
+	mRecvBuff->Clear(); // clear buff
+	mRecvMtx.unlock();
+}
+
 void CGameNet::_sendProc()
 {
 	char tmpBuff[65535];
@@ -122,7 +128,7 @@ void CGameNet::_sendProc()
 				if (!ret)
 				{
 					NotifyDisconnected();
-					break;
+					continue;
 				}
 			}
 		}
@@ -176,9 +182,9 @@ void CGameNet::_recvProc()
 		}
 	}
 
-	mSendMtx.lock();
+	mRecvMtx.lock();
 	mRecvBuff->Clear(); // clear buff
-	mSendMtx.unlock();
+	mRecvMtx.unlock();
 	printf("--- recv thread over\n");
 }
 
@@ -233,7 +239,7 @@ bool CGameNet::Connect(std::string _ip, int _port)
 
 	std::thread thConnect(ConnectThread, entity);
 	thConnect.detach();
-	printf("--- thConnect:0x%x", &thConnect);
+	printf("--- thConnect:0x%x\n", &thConnect);
 	//return ConnectThread(entity);
 	return true;
 }
@@ -303,6 +309,13 @@ extern "C" {
 		CGameNet::GetInstance()->SetCallback(_cb);
 	}
 
+	void StartSRThread() {
+		CGameNet::GetInstance()->StartSRThread();
+	}
+
+	void Clear() {
+		CGameNet::GetInstance()->Clear();
+	}
 }
 
 

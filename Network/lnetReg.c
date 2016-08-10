@@ -11,6 +11,8 @@ extern void Send(const char* _msg, int _len);
 extern void Recv(char* _msg, unsigned int* _len);
 extern void Close();
 extern void RegCallback(Callback _cb);
+extern void StartSRThread();
+extern void Clear();
 
 static char lcbFunc[32] = {0};
 static lua_State* selfls = NULL;
@@ -93,6 +95,18 @@ lclose(lua_State *L) {
 	return 1;
 }
 
+static int
+lstartSRThread(lua_State *L) {
+	StartSRThread();
+	return 1;
+}
+
+static int
+lclear(lua_State *L) {
+	Clear();
+	return 1;
+}
+
 LUA_API_EXPORT int
 luaopen_network(lua_State *L) {
 	luaL_checkversion(L);
@@ -102,6 +116,8 @@ luaopen_network(lua_State *L) {
 		{ "recv", lrecv },
 		{ "close", lclose },
 		{ "regCallback", lregCallback },
+		{ "startSRThread", lstartSRThread },
+		{ "clear", lclear },
 		{ NULL, NULL },
 	};
 	//luaL_newlib(L, l);
