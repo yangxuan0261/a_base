@@ -12,6 +12,8 @@ CGameNet::CGameNet()
 , mNetState(ENetState::None)
 , mIp("")
 , mPort(0)
+, mConnectCb("")
+, mDisconnectCb("")
 {
 	mSendBuff = new SBuff();
 	mRecvBuff = new SBuff();
@@ -45,44 +47,66 @@ void CGameNet::_start()
 	thRecv.detach();
 }
 
-void CGameNet::_reconnect()
-{
-	if (mIp.length() > 0 && mPort > 0)
-	{
-
-	}
-}
-
 void CGameNet::Update(float _dt)
 {
 	if (mNetState == ENetState::None)
 	{
 	}
-	else if (mNetState == ENetState::Connected)
+	else if (mNetState == ENetState::ConnectSucc)
 	{
-	}
-	else if (mNetState == ENetState::Connected)
-	{
-		if (mOnConnectDlg)
-			mOnConnectDlg(true);
+		if (mNetCallback)
+			mNetCallback((int)ENetState::ConnectSucc);
 
 		_changeState(ENetState::Networking);
 	}
+	else if (mNetState == ENetState::ConnectFail)
+	{
+		if (mNetCallback)
+			mNetCallback((int)ENetState::ConnectFail);
+
+		_changeState(ENetState::None);
+	}
 	else if (mNetState == ENetState::Networking)
 	{
-		int a = 1;
 	}
 	else if (mNetState == ENetState::Disconnected)
 	{
-		if (mOnDisconnectDlg)
-			mOnDisconnectDlg(true);
+		mSendThRunnable = false;
+		mRecvThRunnable = false;
 
-		_changeState(ENetState::Reconnect);
+		if (mNetCallback)
+			mNetCallback((int)ENetState::Disconnected);
+
+		_changeState(ENetState::None);
 	}
-	else if (mNetState == ENetState::Disconnected)
+	else if (mNetState == ENetState::Reconnect)
 	{
+		if (mNetCallback)
+			mNetCallback((int)ENetState::Reconnect);
 
+		if (mIp.length() > 0 && mPort > 0)
+			Connect(mIp, mPort);
+
+		_changeState(ENetState::None);
 	}
+}
+
+void CGameNet::StartSRThread()
+{
+	mSendThRunnable = true;
+	mRecvThRunnable = true;
+	_start(); //链接成功开始工作线程
+}
+
+void CGameNet::Clear()
+{
+	mSendMtx.lock();
+	mSendBuff->Clear(); // clear buff
+	mSendMtx.unlock();
+
+	mRecvMtx.lock();
+	mRecvBuff->Clear(); // clear buff
+	mRecvMtx.unlock();
 }
 
 void CGameNet::_sendProc()
@@ -113,6 +137,11 @@ void CGameNet::_sendProc()
 			Sleep(100);
 		}
 	}
+
+	mSendMtx.lock();
+	mSendBuff->Clear(); // clear buff
+	mSendMtx.unlock();
+	printf("--- send thread over\n");
 }
 
 void CGameNet::Send(const char* _buff, int _len)
@@ -152,6 +181,11 @@ void CGameNet::_recvProc()
 			}
 		}
 	}
+
+	mRecvMtx.lock();
+	mRecvBuff->Clear(); // clear buff
+	mRecvMtx.unlock();
+	printf("--- recv thread over\n");
 }
 
 void CGameNet::Recv(char* _buff, uint32* _len)
@@ -183,24 +217,15 @@ bool CGameNet::_connect(std::string _ip, int _port)
 	if (result && mNetSocket->Connect(_ip.c_str(), _port, errCode))
 	{
 		printf("---@@@ connect to %s:%d success @@@---\n", _ip.c_str(), _port);
-		mSendThRunnable = true;
-		mRecvThRunnable = true;
-		_start(); //链接成功开始工作线程
-
-		//if (mOnConnectDlg)
-		//	mOnConnectDlg(true);
-
-		_changeState(ENetState::Connected);
-
+		_changeState(ENetState::ConnectSucc);
 		return true;
 	}
 	else
 	{
 		printf("--------- connect fail, errCode:%f\n", errCode);
-		//mSendThRunnable = false;
-		//mRecvThRunnable = false;
-		if (mOnConnectDlg)
-			mOnConnectDlg(false);
+
+		_changeState(ENetState::ConnectFail);
+
 		return false;
 	}
 }
@@ -212,10 +237,11 @@ bool CGameNet::Connect(std::string _ip, int _port)
 	entity->mIp = _ip;
 	entity->mPort = _port;
 
-	//std::thread thConnect(ConnectThread, entity);
-	//thConnect.detach();
-	//printf("---- thConnect:0x%x", &thConnect);
-	return ConnectThread(entity);
+	std::thread thConnect(ConnectThread, entity);
+	thConnect.detach();
+	printf("--- thConnect:0x%x\n", &thConnect);
+	//return ConnectThread(entity);
+	return true;
 }
 
 void CGameNet::Close()
@@ -233,11 +259,8 @@ void CGameNet::Close()
 
 void CGameNet::NotifyDisconnected()
 {
-	printf("--- NotifyDisconnected\n");
-	mSendThRunnable = false;
-	mRecvThRunnable = false;
-
-	_changeState(ENetState::Disconnected);
+	//printf("--- NotifyDisconnected\n");
+	//_changeState(ENetState::Disconnected);
 }
 
 void CGameNet::ReceiverThread(void* _data)
@@ -280,6 +303,18 @@ extern "C" {
 		
 	void Close() {
 		CGameNet::GetInstance()->Close();
+	}
+
+	void RegCallback(Callback _cb) {
+		CGameNet::GetInstance()->SetCallback(_cb);
+	}
+
+	void StartSRThread() {
+		CGameNet::GetInstance()->StartSRThread();
+	}
+
+	void Clear() {
+		CGameNet::GetInstance()->Clear();
 	}
 }
 

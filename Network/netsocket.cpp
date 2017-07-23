@@ -98,7 +98,7 @@ int CNetSocket::_Recv(char* _buff, int* _len)
 	int ret = recv(m_socket, buffer, CACHE_SIZE, 0);
 	if (ret == 0) {
 		// close
-		printf("recv remote close\r\n");
+		//printf("recv remote close\r\n");
 		return ret;
 	}
 	else if (ret < 0)
