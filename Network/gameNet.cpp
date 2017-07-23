@@ -259,7 +259,7 @@ void CGameNet::Close()
 
 void CGameNet::NotifyDisconnected()
 {
-	printf("--- NotifyDisconnected\n");
+	//printf("--- NotifyDisconnected\n");
 	//_changeState(ENetState::Disconnected);
 }
 
